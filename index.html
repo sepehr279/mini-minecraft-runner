@@ -100,7 +100,9 @@ function loop(t){
  if(player.y>=ground-player.h){player.y=ground-player.h;player.vy=0}
  spawnTimer-=dt;
  if(spawnTimer<=0){spawn();spawnTimer=650+Math.random()*700}
- const speed=W*.0000072*dt;
+ const elapsed=score;
+ const baseSpeed=W*.00004*(dt/16);
+ const speed=baseSpeed*(1+Math.min(elapsed/180,0.45));
  for(const b of blocks)b.x-=speed;
  blocks=blocks.filter(b=>b.x+b.w>0);
  if(blocks.some(b=>hit(player,b))){
