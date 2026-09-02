@@ -1,49 +1,28 @@
 <!doctype html>
-<html lang="fa" dir="rtl">
+<html>
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
-<meta name="theme-color" content="#fff">
-<link rel="manifest" href="manifest.webmanifest">
-<title>Mini Minecraft Runner</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
 <style>
-*{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;touch-action:none;background:#fff;font-family:system-ui,sans-serif}
-#world{position:fixed;inset:0;overflow:hidden;background:linear-gradient(#fff 0 81%,#222 81% 100%)}
-.cloud{position:absolute;background:#e8e8e8;border-radius:30px;width:90px;height:25px;opacity:.9}.cloud:before,.cloud:after{content:"";position:absolute;background:#e8e8e8;border-radius:50%}.cloud:before{width:42px;height:42px;left:15px;top:-20px}.cloud:after{width:52px;height:52px;left:42px;top:-28px}
-#player{position:absolute;z-index:10;width:82px;height:82px;object-fit:contain;display:block;user-select:none;-webkit-user-drag:none}
-#fallback{position:absolute;z-index:9;width:70px;height:70px;background:#fff;border:2px solid #111;display:none}.eye{position:absolute;background:#111;width:8px;height:13px;top:23px;border-radius:50%}.e1{left:18px}.e2{right:18px}.shirt{position:absolute;left:14px;right:14px;bottom:0;height:31px;background:#2788d8}
-.ob{position:absolute;z-index:8;bottom:19%;width:34px;background:#444;border-radius:3px 3px 0 0}.ob:before{content:"";position:absolute;top:8px;left:6px;right:6px;height:5px;background:#666}
-#hud{position:fixed;z-index:20;left:12px;top:10px;color:#111;font-weight:800;font-size:18px;direction:ltr;text-shadow:0 1px #fff}
-#msg{position:fixed;z-index:30;left:50%;top:25%;transform:translateX(-50%);background:#fff;padding:10px 16px;border-radius:14px;font-weight:800;box-shadow:0 3px 15px #0002;pointer-events:none;text-align:center}
-#restart{display:none;position:fixed;z-index:31;left:50%;top:55%;transform:translate(-50%,-50%);border:0;border-radius:14px;padding:13px 22px;font-size:18px;font-weight:800;background:#222;color:#fff}
-</style></head>
+body{margin:0;overflow:hidden;background:white;font-family:Arial}
+#score{position:fixed;top:10px;left:10px;font-size:28px}
+#game{height:100vh;background:linear-gradient(#fff,#eee)}
+#player{position:absolute;bottom:80px;left:90px;font-size:60px}
+#block{position:absolute;bottom:80px;right:-80px;width:45px;height:70px;background:#555}
+</style>
+</head>
 <body>
-<div id="world">
- <div class="cloud" style="left:8%;top:15%"></div><div class="cloud" style="left:62%;top:9%;transform:scale(.75)"></div><div class="cloud" style="left:80%;top:25%;transform:scale(.55)"></div>
- <img id="player" src="player.png?v=4" alt="player">
- <div id="fallback"><i class="eye e1"></i><i class="eye e2"></i><div class="shirt"></div></div>
-</div>
-<div id="hud">Score: 0<br>Best: 0</div><div id="msg">👆 لمس کن و بازی شروع می‌شود!</div><button id="restart">دوباره بازی کن</button>
+<div id="score">Score: 0</div>
+<div id="game"><div id="player">🧍</div><div id="block"></div></div>
 <script>
-(()=>{
-const world=document.getElementById('world'), p=document.getElementById('player'), fb=document.getElementById('fallback'), hud=document.getElementById('hud'), msg=document.getElementById('msg'), restart=document.getElementById('restart');
-let W=innerWidth,H=innerHeight,gy=H*.81,x=W*.15,y=0,vy=0,grounded=true,running=false,dead=false,last=0,score=0,best=+(localStorage.getItem('mmr_best')||0),obs=[],timer=0;
-function size(){W=innerWidth;H=innerHeight;gy=H*.81; if(!running){x=W*.15;y=gy-82} place();}
-function place(){p.style.left=x+'px';p.style.top=y+'px';fb.style.left=(x+6)+'px';fb.style.top=(y+6)+'px';}
-function jump(){if(dead){reset();start();return} if(!running){start();return} if(grounded){vy=-Math.max(13,H*.020);grounded=false}}
-function start(){running=true;dead=false;msg.style.display='none';restart.style.display='none';last=performance.now();requestAnimationFrame(loop)}
-function reset(){obs.forEach(o=>o.el.remove());obs=[];score=0;timer=350;vy=0;grounded=true;dead=false;x=W*.15;y=gy-82;place();hud.innerHTML='Score: 0<br>Best: '+best}
-function add(){const el=document.createElement('div');el.className='ob';const h=45+Math.random()*70;el.style.height=h+'px';el.style.right='-45px';world.appendChild(el);obs.push({el,x:W+45,w:34,h});}
-function hit(a,b){return a.x+9<b.x+b.w&&a.x+73>b.x&&a.y+10<b.y+b.h&&a.y+72>b.y}
-function die(){running=false;dead=true;best=Math.max(best,Math.floor(score));localStorage.setItem('mmr_best',best);msg.innerHTML='💥 باختی!<br>امتیاز: '+Math.floor(score);msg.style.display='block';restart.style.display='block'}
-function loop(t){if(!running)return;const dt=Math.min(30,t-last||16);last=t;const scale=dt/16;const speed=(W*.00115)*scale*(1+Math.min(score/120,0.7));
-vy+=.78*scale;y+=vy*scale;if(y+82>=gy){y=gy-82;vy=0;grounded=true}timer-=dt;if(timer<=0){add();timer=650+Math.random()*550}
-for(let i=obs.length-1;i>=0;i--){let o=obs[i];o.x-=speed;o.el.style.left=o.x+'px';o.el.style.bottom='19%';o.el.style.right='auto';if(o.x+o.w<0){o.el.remove();obs.splice(i,1)}}
-for(const o of obs){const by=gy-o.h;if(hit({x,y,w:82,h:82},{x:o.x,y:by,w:o.w,h:o.h})){die();return}}
-score+=dt/100;hud.innerHTML='Score: '+Math.floor(score)+'<br>Best: '+best;place();requestAnimationFrame(loop)}
-p.onerror=()=>{p.style.display='none';fb.style.display='block'};p.onload=()=>{p.style.display='block';fb.style.display='none';place()};
-addEventListener('resize',size);addEventListener('pointerdown',e=>{if(e.target===restart)return;e.preventDefault();jump()},{passive:false});restart.addEventListener('pointerdown',e=>{e.preventDefault();reset();start()},{passive:false});
-size();reset();
-if('serviceWorker' in navigator && location.protocol!=='file:') addEventListener('load',()=>navigator.serviceWorker.register('sw.js?v=4').catch(()=>{}));
-})();
-</script></body></html>
+let p=document.getElementById("player"),b=document.getElementById("block"),s=document.getElementById("score");
+let y=0,j=false,score=0,speed=4;
+function jump(){if(!j){j=true;let t=setInterval(()=>{y+=8;p.style.bottom=(80+y)+"px";if(y>120){clearInterval(t);let d=setInterval(()=>{y-=8;p.style.bottom=(80+y)+"px";if(y<=0){y=0;j=false;clearInterval(d)}},20)}},20)}}
+document.body.onclick=jump;
+function loop(){let x=parseInt(getComputedStyle(b).right);b.style.right=(x+speed)+"px";
+if(x>innerWidth+80){b.style.right="-80px";score++;s.textContent="Score: "+score;speed=Math.min(8,speed+.05)}
+let pr=p.getBoundingClientRect(), br=b.getBoundingClientRect();
+if(pr.right>br.left&&pr.left<br.right&&pr.bottom>br.top&&pr.top<br.bottom){score=0;speed=4;s.textContent="Score: 0"}
+requestAnimationFrame(loop)}
+loop();
+</script>
+</body></html>
