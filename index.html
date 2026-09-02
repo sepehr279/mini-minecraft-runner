@@ -3,234 +3,47 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
-<meta name="theme-color" content="#ffffff">
+<meta name="theme-color" content="#fff">
 <link rel="manifest" href="manifest.webmanifest">
 <title>Mini Minecraft Runner</title>
 <style>
-  *{box-sizing:border-box}
-  html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#fff;touch-action:none}
-  body{font-family:system-ui,-apple-system,Segoe UI,sans-serif}
-  canvas{display:block;width:100vw;height:100vh;background:#fff}
-  #status{
-    position:fixed;left:50%;top:18%;transform:translateX(-50%);
-    z-index:5;text-align:center;font-weight:800;font-size:20px;
-    background:rgba(255,255,255,.9);padding:10px 16px;border-radius:14px;
-    box-shadow:0 3px 15px rgba(0,0,0,.12);pointer-events:none
-  }
-  #restart{
-    display:none;position:fixed;left:50%;top:58%;transform:translate(-50%,-50%);
-    z-index:6;border:0;border-radius:14px;padding:13px 22px;font-size:18px;
-    font-weight:800;background:#222;color:#fff
-  }
-</style>
-</head>
+*{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;touch-action:none;background:#fff;font-family:system-ui,sans-serif}
+#world{position:fixed;inset:0;overflow:hidden;background:linear-gradient(#fff 0 81%,#222 81% 100%)}
+.cloud{position:absolute;background:#e8e8e8;border-radius:30px;width:90px;height:25px;opacity:.9}.cloud:before,.cloud:after{content:"";position:absolute;background:#e8e8e8;border-radius:50%}.cloud:before{width:42px;height:42px;left:15px;top:-20px}.cloud:after{width:52px;height:52px;left:42px;top:-28px}
+#player{position:absolute;z-index:10;width:82px;height:82px;object-fit:contain;display:block;user-select:none;-webkit-user-drag:none}
+#fallback{position:absolute;z-index:9;width:70px;height:70px;background:#fff;border:2px solid #111;display:none}.eye{position:absolute;background:#111;width:8px;height:13px;top:23px;border-radius:50%}.e1{left:18px}.e2{right:18px}.shirt{position:absolute;left:14px;right:14px;bottom:0;height:31px;background:#2788d8}
+.ob{position:absolute;z-index:8;bottom:19%;width:34px;background:#444;border-radius:3px 3px 0 0}.ob:before{content:"";position:absolute;top:8px;left:6px;right:6px;height:5px;background:#666}
+#hud{position:fixed;z-index:20;left:12px;top:10px;color:#111;font-weight:800;font-size:18px;direction:ltr;text-shadow:0 1px #fff}
+#msg{position:fixed;z-index:30;left:50%;top:25%;transform:translateX(-50%);background:#fff;padding:10px 16px;border-radius:14px;font-weight:800;box-shadow:0 3px 15px #0002;pointer-events:none;text-align:center}
+#restart{display:none;position:fixed;z-index:31;left:50%;top:55%;transform:translate(-50%,-50%);border:0;border-radius:14px;padding:13px 22px;font-size:18px;font-weight:800;background:#222;color:#fff}
+</style></head>
 <body>
-<canvas id="game"></canvas>
-<div id="status">👆 صفحه را لمس کن تا شروع شود</div>
-<button id="restart">دوباره بازی کن</button>
-
+<div id="world">
+ <div class="cloud" style="left:8%;top:15%"></div><div class="cloud" style="left:62%;top:9%;transform:scale(.75)"></div><div class="cloud" style="left:80%;top:25%;transform:scale(.55)"></div>
+ <img id="player" src="player.png?v=4" alt="player">
+ <div id="fallback"><i class="eye e1"></i><i class="eye e2"></i><div class="shirt"></div></div>
+</div>
+<div id="hud">Score: 0<br>Best: 0</div><div id="msg">👆 لمس کن و بازی شروع می‌شود!</div><button id="restart">دوباره بازی کن</button>
 <script>
-(() => {
-  "use strict";
-
-  const canvas = document.getElementById("game");
-  const ctx = canvas.getContext("2d");
-  const status = document.getElementById("status");
-  const restart = document.getElementById("restart");
-  const img = new Image();
-  img.src = "player.png";
-
-  let W=0,H=0,dpr=1;
-  let player, obstacles, running=false, gameOver=false;
-  let score=0, best=Number(localStorage.getItem("mmr_best")||0);
-  let last=0, spawnTimer=0;
-
-  function resize(){
-    dpr=Math.min(window.devicePixelRatio||1,2);
-    W=window.innerWidth; H=window.innerHeight;
-    canvas.width=Math.floor(W*dpr); canvas.height=Math.floor(H*dpr);
-    canvas.style.width=W+"px"; canvas.style.height=H+"px";
-    ctx.setTransform(dpr,0,0,dpr,0,0);
-    if(player && !running){ player.x=W*.16; player.y=groundY()-player.h; }
-    draw();
-  }
-  window.addEventListener("resize",resize);
-
-  function groundY(){ return H*.82; }
-
-  function newPlayer(){
-    const size=Math.max(54,Math.min(88,W*.16));
-    return {x:W*.16,y:groundY()-size,w:size,h:size,vy:0,onGround:true};
-  }
-
-  function reset(){
-    player=newPlayer();
-    obstacles=[];
-    score=0;
-    spawnTimer=450;
-    gameOver=false;
-    running=false;
-    last=0;
-    status.textContent="👆 صفحه را لمس کن تا شروع شود";
-    status.style.display="block";
-    restart.style.display="none";
-    draw();
-  }
-
-  function start(){
-    if(running) return;
-    if(gameOver) reset();
-    running=true;
-    gameOver=false;
-    status.style.display="none";
-    restart.style.display="none";
-    last=performance.now();
-    requestAnimationFrame(loop);
-  }
-
-  function jump(){
-    if(!running){ start(); return; }
-    if(player.onGround){
-      player.vy=-Math.max(11, H*.018);
-      player.onGround=false;
-    }
-  }
-
-  function addObstacle(){
-    const h=Math.max(34, H*(0.07+Math.random()*0.08));
-    const w=Math.max(24, W*(0.045+Math.random()*0.035));
-    obstacles.push({x:W+20,y:groundY()-h,w,h});
-  }
-
-  function collide(a,b){
-    const pad=7;
-    return a.x+pad < b.x+b.w &&
-           a.x+a.w-pad > b.x &&
-           a.y+pad < b.y+b.h &&
-           a.y+a.h-pad > b.y;
-  }
-
-  function endGame(){
-    running=false; gameOver=true;
-    best=Math.max(best,Math.floor(score));
-    localStorage.setItem("mmr_best",best);
-    status.innerHTML="💥 باختی!<br><small>امتیاز: "+Math.floor(score)+"</small>";
-    status.style.display="block";
-    restart.style.display="block";
-    draw();
-  }
-
-  function loop(now){
-    if(!running) return;
-    const dt=Math.min(32,now-last||16);
-    last=now;
-
-    // Faster obstacles, with a gentle increase over time.
-    const speed=W*0.000045*(dt/16)*(1+Math.min(score/180,0.55));
-
-    player.vy += H*0.000055*dt;
-    player.y += player.vy*(dt/16);
-    if(player.y+player.h >= groundY()){
-      player.y=groundY()-player.h;
-      player.vy=0;
-      player.onGround=true;
-    }
-
-    spawnTimer-=dt;
-    if(spawnTimer<=0){
-      addObstacle();
-      spawnTimer=700+Math.random()*650;
-    }
-
-    for(let i=obstacles.length-1;i>=0;i--){
-      obstacles[i].x-=speed;
-      if(obstacles[i].x+obstacles[i].w<0) obstacles.splice(i,1);
-    }
-
-    for(const o of obstacles){
-      if(collide(player,o)){ endGame(); return; }
-    }
-
-    score += dt/100;
-    draw();
-    requestAnimationFrame(loop);
-  }
-
-  function drawCloud(x,y,s){
-    ctx.fillStyle="#e7e7e7";
-    ctx.beginPath();
-    ctx.arc(x,y,18*s,0,Math.PI*2);
-    ctx.arc(x+25*s,y-8*s,24*s,0,Math.PI*2);
-    ctx.arc(x+52*s,y,17*s,0,Math.PI*2);
-    ctx.fill();
-    ctx.fillRect(x,y,x+52*s-x,18*s);
-  }
-
-  function drawFallback(){
-    // A simple blocky mascot fallback, so the player is visible even if player.png fails.
-    const x=player.x,y=player.y,s=player.w;
-    ctx.fillStyle="#fff"; ctx.fillRect(x,y,s,s);
-    ctx.strokeStyle="#111"; ctx.lineWidth=2; ctx.strokeRect(x,y,s,s);
-    ctx.fillStyle="#111";
-    ctx.ellipse(x+s*.32,y+s*.38,s*.07,s*.11,0,0,Math.PI*2); ctx.fill();
-    ctx.ellipse(x+s*.68,y+s*.38,s*.07,s*.11,0,0,Math.PI*2); ctx.fill();
-    ctx.fillStyle="#2387d9"; ctx.fillRect(x+s*.22,y+s*.56,s*.56,s*.44);
-    ctx.fillStyle="#222"; ctx.fillRect(x+s*.30,y+s*.86,s*.14,s*.14); ctx.fillRect(x+s*.56,y+s*.86,s*.14,s*.14);
-  }
-
-  function drawPlayer(){
-    if(img.naturalWidth>0){
-      ctx.drawImage(img,player.x,player.y,player.w,player.h);
-    }else{
-      drawFallback();
-    }
-  }
-
-  function draw(){
-    if(!W||!H) return;
-    ctx.clearRect(0,0,W,H);
-    ctx.fillStyle="#fff"; ctx.fillRect(0,0,W,H);
-
-    drawCloud(W*.10,H*.16,0.7);
-    drawCloud(W*.62,H*.11,0.55);
-    drawCloud(W*.82,H*.25,0.4);
-
-    const gy=groundY();
-    ctx.fillStyle="#222"; ctx.fillRect(0,gy,W,H-gy);
-    ctx.fillStyle="#555";
-    for(let x=0;x<W;x+=Math.max(50,W*.11)) ctx.fillRect(x,gy+H*.045,Math.max(22,W*.045),4);
-
-    if(player) drawPlayer();
-
-    for(const o of obstacles){
-      ctx.fillStyle="#444";
-      ctx.fillRect(o.x,o.y,o.w,o.h);
-      ctx.fillStyle="#666";
-      ctx.fillRect(o.x+o.w*.2,o.y+o.h*.12,o.w*.6,5);
-    }
-
-    ctx.fillStyle="#111";
-    ctx.font="bold 18px system-ui";
-    ctx.textAlign="left";
-    ctx.fillText("Score: "+Math.floor(score),16,32);
-    ctx.fillText("Best: "+best,16,57);
-  }
-
-  canvas.addEventListener("pointerdown", e => { e.preventDefault(); jump(); }, {passive:false});
-  restart.addEventListener("pointerdown", e => { e.preventDefault(); reset(); start(); }, {passive:false});
-  img.onload=draw;
-  img.onerror=draw;
-
-  // Prevent the browser's long-press/context menu from interfering.
-  window.addEventListener("contextmenu",e=>e.preventDefault());
-  resize();
-  reset();
-
-  // Register the service worker with a versioned file so GitHub Pages updates cleanly.
-  if("serviceWorker" in navigator && location.protocol!=="file:"){
-    window.addEventListener("load",()=>navigator.serviceWorker.register("sw.js?v=3").catch(()=>{}));
-  }
+(()=>{
+const world=document.getElementById('world'), p=document.getElementById('player'), fb=document.getElementById('fallback'), hud=document.getElementById('hud'), msg=document.getElementById('msg'), restart=document.getElementById('restart');
+let W=innerWidth,H=innerHeight,gy=H*.81,x=W*.15,y=0,vy=0,grounded=true,running=false,dead=false,last=0,score=0,best=+(localStorage.getItem('mmr_best')||0),obs=[],timer=0;
+function size(){W=innerWidth;H=innerHeight;gy=H*.81; if(!running){x=W*.15;y=gy-82} place();}
+function place(){p.style.left=x+'px';p.style.top=y+'px';fb.style.left=(x+6)+'px';fb.style.top=(y+6)+'px';}
+function jump(){if(dead){reset();start();return} if(!running){start();return} if(grounded){vy=-Math.max(13,H*.020);grounded=false}}
+function start(){running=true;dead=false;msg.style.display='none';restart.style.display='none';last=performance.now();requestAnimationFrame(loop)}
+function reset(){obs.forEach(o=>o.el.remove());obs=[];score=0;timer=350;vy=0;grounded=true;dead=false;x=W*.15;y=gy-82;place();hud.innerHTML='Score: 0<br>Best: '+best}
+function add(){const el=document.createElement('div');el.className='ob';const h=45+Math.random()*70;el.style.height=h+'px';el.style.right='-45px';world.appendChild(el);obs.push({el,x:W+45,w:34,h});}
+function hit(a,b){return a.x+9<b.x+b.w&&a.x+73>b.x&&a.y+10<b.y+b.h&&a.y+72>b.y}
+function die(){running=false;dead=true;best=Math.max(best,Math.floor(score));localStorage.setItem('mmr_best',best);msg.innerHTML='💥 باختی!<br>امتیاز: '+Math.floor(score);msg.style.display='block';restart.style.display='block'}
+function loop(t){if(!running)return;const dt=Math.min(30,t-last||16);last=t;const scale=dt/16;const speed=(W*.00115)*scale*(1+Math.min(score/120,0.7));
+vy+=.78*scale;y+=vy*scale;if(y+82>=gy){y=gy-82;vy=0;grounded=true}timer-=dt;if(timer<=0){add();timer=650+Math.random()*550}
+for(let i=obs.length-1;i>=0;i--){let o=obs[i];o.x-=speed;o.el.style.left=o.x+'px';o.el.style.bottom='19%';o.el.style.right='auto';if(o.x+o.w<0){o.el.remove();obs.splice(i,1)}}
+for(const o of obs){const by=gy-o.h;if(hit({x,y,w:82,h:82},{x:o.x,y:by,w:o.w,h:o.h})){die();return}}
+score+=dt/100;hud.innerHTML='Score: '+Math.floor(score)+'<br>Best: '+best;place();requestAnimationFrame(loop)}
+p.onerror=()=>{p.style.display='none';fb.style.display='block'};p.onload=()=>{p.style.display='block';fb.style.display='none';place()};
+addEventListener('resize',size);addEventListener('pointerdown',e=>{if(e.target===restart)return;e.preventDefault();jump()},{passive:false});restart.addEventListener('pointerdown',e=>{e.preventDefault();reset();start()},{passive:false});
+size();reset();
+if('serviceWorker' in navigator && location.protocol!=='file:') addEventListener('load',()=>navigator.serviceWorker.register('sw.js?v=4').catch(()=>{}));
 })();
-</script>
-</body>
-</html>
+</script></body></html>
