@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#111111">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Mini Minecraft Runner</title>
+<link rel="manifest" href="manifest.webmanifest">
+<style>
+*{box-sizing:border-box}
+html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#111;touch-action:none}
+body{font-family:Arial,sans-serif}
+canvas{width:100vw;height:100vh;display:block}
+#tip{position:fixed;left:50%;bottom:max(18px,env(safe-area-inset-bottom));transform:translateX(-50%);
+background:#111e;color:white;padding:11px 18px;border-radius:22px;font-size:15px;white-space:nowrap}
+</style>
+</head>
+<body>
+<canvas id="game"></canvas>
+<div id="tip">👆 برای پرش لمس کن</div>
+<script>
+const canvas=document.getElementById("game"),ctx=canvas.getContext("2d");
+const playerImg=new Image(); playerImg.src="player.png";
+let dpr=1,W=0,H=0,ground=0,player,blocks=[],score=0,best=Number(localStorage.getItem("mmrBest")||0);
+let running=false,gameOver=false,last=0,spawnTimer=0;
+
+function resize(){
+ dpr=Math.min(devicePixelRatio||1,2);
+ W=innerWidth*dpr; H=innerHeight*dpr;
+ canvas.width=W; canvas.height=H;
+ ground=H*.82;
+ if(player && !running) player.y=ground-player.h;
+}
+addEventListener("resize",resize); resize();
+
+function start(){
+ player={x:W*.12,y:ground-H*.18,w:H*.14,h:H*.18,vy:0};
+ blocks=[];score=0;spawnTimer=500;running=true;gameOver=false;last=performance.now();
+ document.getElementById("tip").style.display="none";
+ requestAnimationFrame(loop);
+}
+function jump(){
+ if(gameOver || !running){start();return}
+ if(player.y>=ground-player.h-3) player.vy=-H*.034;
+}
+addEventListener("pointerdown",e=>{e.preventDefault();jump()},{passive:false});
+addEventListener("keydown",e=>{if(e.code==="Space"||e.code==="ArrowUp")jump()});
+
+function spawn(){
+ const tall=Math.random()<.5;
+ const h=tall?H*.14:H*.085, w=tall?H*.06:H*.095;
+ blocks.push({x:W+20,y:ground-h,w,h});
+}
+function hit(a,b){
+ return a.x+H*.012<b.x+b.w && a.x+a.w-H*.012>b.x &&
+        a.y+H*.02<b.y+b.h && a.y+a.h>b.y;
+}
+function draw(){
+ ctx.clearRect(0,0,W,H);
+ ctx.fillStyle="#f7f7f7";ctx.fillRect(0,0,W,H);
+ ctx.fillStyle="#d9d9d9";
+ for(let x=20-(Math.floor(score)%250);x<W;x+=250){
+   ctx.fillRect(x,H*.15,65,7);ctx.fillRect(x+15,H*.13,30,10);
+ }
+ ctx.fillStyle="#333";ctx.fillRect(0,ground,W,H-ground);
+ ctx.fillStyle="#666";
+ for(let x=0;x<W;x+=H*.055)ctx.fillRect(x,ground-H*.012,H*.006,H*.012);
+
+ if(playerImg.complete)ctx.drawImage(playerImg,player.x,player.y,player.w,player.h);
+ for(const b of blocks){
+   ctx.fillStyle="#555";ctx.fillRect(b.x,b.y,b.w,b.h);
+   ctx.fillStyle="#777";ctx.fillRect(b.x+b.w*.18,b.y+b.h*.18,b.w*.12,b.w*.12);
+ }
+ ctx.fillStyle="#222";ctx.textAlign="left";
+ ctx.font="bold "+Math.max(18,H*.035)+"px Arial";
+ ctx.fillText("Score: "+Math.floor(score),18,38);
+ ctx.fillText("Best: "+best,18,70);
+
+ if(!running&&!gameOver){
+   ctx.textAlign="center";ctx.font="bold "+Math.max(22,H*.045)+"px Arial";
+   ctx.fillText("👆 لمس کن تا شروع شود",W/2,H*.42);
+ }
+ if(gameOver){
+   ctx.fillStyle="#ffffffee";ctx.fillRect(W*.1,H*.29,W*.8,H*.29);
+   ctx.fillStyle="#222";ctx.textAlign="center";
+   ctx.font="bold "+Math.max(25,H*.05)+"px Arial";
+   ctx.fillText("باختی! 😄",W/2,H*.40);
+   ctx.font=Math.max(16,H*.03)+"px Arial";
+   ctx.fillText("امتیاز: "+Math.floor(score),W/2,H*.48);
+   ctx.fillText("برای بازی دوباره لمس کن",W/2,H*.56);
+ }
+}
+function loop(t){
+ if(!running){draw();return}
+ const dt=Math.min(34,t-last);last=t;
+ player.vy += H*.0018*(dt/16);
+ player.y += player.vy*(dt/16);
+ if(player.y>=ground-player.h){player.y=ground-player.h;player.vy=0}
+ spawnTimer-=dt;
+ if(spawnTimer<=0){spawn();spawnTimer=650+Math.random()*700}
+ const speed=W*.0000072*dt;
+ for(const b of blocks)b.x-=speed;
+ blocks=blocks.filter(b=>b.x+b.w>0);
+ if(blocks.some(b=>hit(player,b))){
+   running=false;gameOver=true;
+   best=Math.max(best,Math.floor(score));
+   localStorage.setItem("mmrBest",best);
+ }
+ score+=dt/100;
+ draw();
+ if(running)requestAnimationFrame(loop);
+}
+draw();
+
+if("serviceWorker" in navigator && location.protocol!=="file:"){
+ navigator.serviceWorker.register("sw.js").catch(()=>{});
+}
+</script>
+</body>
+</html>
